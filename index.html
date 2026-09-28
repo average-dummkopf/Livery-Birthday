@@ -2092,20 +2092,14 @@
         font-weight: 500;
     }
 
-    /* Temporary square placeholder for the future video. */
-    .ending-video-placeholder {
+    .ending-video {
         width: min(56vw, 320px);
         aspect-ratio: 1 / 1;
         margin: 0 auto 22px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        display: block;
         background: #222;
-        color: #f8e8c8;
-        border: 1px dashed rgba(248, 232, 200, 0.45);
-        font-family: Georgia, "Times New Roman", serif;
-        font-size: 15px;
-        letter-spacing: 1px;
+        border: 1px solid rgba(130, 120, 105, 0.45);
+        object-fit: contain;
     }
 
     .ending-finish-button {
@@ -2385,7 +2379,16 @@
                 <span class="pip-4">♣</span>
             </div>
             <h2 class="ending-letter-title">A little letter</h2>
-            <div class="ending-video-placeholder" id="endingVideoPlaceholder">Video goes here</div>
+            <video
+                class="ending-video"
+                id="endingVideo"
+                controls
+                playsinline
+                preload="metadata"
+            >
+                <source src="video.mp4" type="video/mp4">
+                Your browser does not support HTML5 video.
+            </video>
             <button class="ending-finish-button" id="endingFinishButton" type="button">Finish</button>
         </div>
 
@@ -2400,7 +2403,7 @@
             <img
                 class="ending-final-photo"
                 id="endingFinalPhoto"
-                src="us.jpg"
+                src="us.png"
                 alt="A photo of us"
             >
             <p class="ending-final-text">Happy birthday Liv, I love you &lt;3</p>
@@ -2540,7 +2543,7 @@
        ENDING EXPERIENCE
        ================================================== */
 
-    const ENDING_PHOTO_SRC = "us.jpg";
+    const ENDING_PHOTO_SRC = "us.png";
 
     const endingOverlay =
         document.getElementById("endingOverlay");
@@ -2869,7 +2872,9 @@
         {
             rank: "7",
             suit: "♦",
-            message: "This screenshot:"
+            message: "This screenshot:",
+            photo: "image.png",
+            photoAlt: "Screenshot"
         },
 
         {
