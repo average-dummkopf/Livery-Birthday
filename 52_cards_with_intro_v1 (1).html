@@ -1,0 +1,4325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>52 Cards</title>
+
+<style>
+    * {
+        box-sizing: border-box;
+        user-select: none;
+    }
+
+    body {
+        margin: 0;
+        background: #222;
+        overflow: hidden;
+        font-family: Georgia, "Times New Roman", serif;
+    }
+
+    /* =========================
+       MAIN AREA
+    ========================= */
+
+    .main-area {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+
+        /* A very faint pool of light keeps the center of the table alive
+           without competing with the card itself. */
+        background:
+            radial-gradient(
+                circle at 50% 46%,
+                rgba(230, 204, 178, 0.09) 0%,
+                rgba(230, 204, 178, 0.04) 20%,
+                rgba(34, 34, 34, 0) 52%
+            ),
+            #222;
+    }
+
+    /* =========================
+       CARD CONTAINER
+    ========================= */
+
+    .card-container {
+        position: absolute;
+
+        top: 50%;
+        left: 50%;
+
+        width: 220px;
+        height: 320px;
+
+        transform: translate(-50%, -50%);
+
+        perspective: 1000px;
+
+        transition:
+            transform 0.72s cubic-bezier(.22, .61, .36, 1),
+            opacity 0.72s ease;
+
+        z-index: 10;
+    }
+
+    /* =========================
+       CARD STATES
+    ========================= */
+
+    .card-container.future {
+        opacity: 0;
+        pointer-events: none;
+
+        transform:
+            translate(calc(-50% + 250px), -50%);
+    }
+
+    .card-container.active {
+        opacity: 1;
+        pointer-events: auto;
+
+        transform:
+            translate(-50%, -50%);
+
+        z-index: 100;
+    }
+
+    .card-container.transitioning {
+        pointer-events: none;
+    }
+
+    /* =========================
+       PLAYED PILE
+    ========================= */
+
+    .card-container.in-pile {
+        opacity: 1;
+        pointer-events: auto;
+
+        transform:
+            translate(
+                calc(-50% + var(--pile-x)),
+                calc(-50% + 270px)
+            )
+            scale(0.50)
+            rotate(var(--pile-rotation));
+
+        z-index: var(--pile-index);
+
+        cursor: pointer;
+    }
+
+    /*
+     * Hovered cards pop upward slightly.
+     */
+
+    .card-container.in-pile:hover {
+        transform:
+            translate(
+                calc(-50% + var(--pile-x) + 3px),
+                calc(-50% + 270px - 22px)
+            )
+            scale(0.56)
+            rotate(var(--pile-rotation));
+
+        /*
+         * Do NOT change z-index here.
+         * Newer cards must remain above older ones.
+         */
+    }
+
+    /* =========================
+       CARD
+    ========================= */
+
+    .card {
+        position: relative;
+
+        width: 100%;
+        height: 100%;
+
+        transform-style: preserve-3d;
+
+        transition:
+            transform 0.55s ease;
+
+        cursor: pointer;
+    }
+
+    .card.flipped {
+        transform: rotateY(180deg);
+    }
+
+    /* =========================
+       CARD SIDES
+    ========================= */
+
+    .card-front,
+    .card-back {
+        position: absolute;
+
+        width: 100%;
+        height: 100%;
+
+        border-radius: 14px;
+
+        backface-visibility: hidden;
+        -webkit-backface-visibility: hidden;
+
+        overflow: hidden;
+    }
+
+    /* =========================
+       FRONT
+    ========================= */
+
+    .card-front {
+        background:
+            radial-gradient(
+                circle at center,
+                rgba(17, 17, 17, 0.035) 1px,
+                transparent 1px
+            ),
+            #fbfaf7;
+
+        background-size: 9px 9px;
+
+        border: 2px solid #111;
+
+        box-shadow:
+            0 10px 25px rgba(0, 0, 0, 0.35);
+    }
+
+    .card-front {
+        --edge-section-height: 20%;
+        --pip-size: 68px;
+    }
+
+    .corner {
+        position: absolute;
+
+        font-size: 29px;
+        line-height: 0.96;
+
+        color: #111;
+
+        z-index: 4;
+    }
+
+    .top-left {
+        top: 14px;
+        left: 14px;
+    }
+
+    .bottom-right {
+        bottom: 14px;
+        right: 14px;
+
+        transform: rotate(180deg);
+    }
+
+    .suit {
+        position: absolute;
+
+        top: 50%;
+        left: 50%;
+
+        transform: translate(-50%, -50%);
+
+        font-size: 118px;
+
+        color: rgba(17, 17, 17, 0.055);
+
+        z-index: 1;
+    }
+
+    /* =========================
+       NUMBER CARD PIPS
+    ========================= */
+
+    .pip-field {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        pointer-events: none;
+    }
+
+    .pip {
+        position: absolute;
+        transform: translate(-50%, -50%);
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: var(--pip-size, 48px);
+        line-height: 1;
+        color: #2D6A4F;
+        font-weight: normal;
+        text-shadow: 0 1px 0 rgba(255,255,255,0.18);
+    }
+
+    .pip.red {
+        color: #2D6A4F;
+    }
+
+    .pip.inverted {
+        transform: translate(-50%, -50%) rotate(180deg);
+    }
+
+    .pip-message-safe {
+        opacity: 0.98;
+    }
+
+    .message-note {
+        position: absolute;
+
+        top: 50%;
+        left: 50%;
+
+        width: 78%;
+        min-height: 44%;
+
+        transform:
+            translate(-50%, -50%)
+            rotate(var(--note-rotation, -2deg));
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        padding: 30px 18px 22px;
+
+        background:
+            repeating-linear-gradient(
+                to bottom,
+                transparent 0,
+                transparent 24px,
+                rgba(80, 110, 150, 0.12) 25px
+            ),
+            #fffdf7;
+
+        border: 1px solid rgba(130, 120, 105, 0.45);
+
+        box-shadow:
+            0 7px 14px rgba(0, 0, 0, 0.18),
+            0 1px 2px rgba(0, 0, 0, 0.12);
+
+        color: #25211d;
+
+        text-align: center;
+
+        font-family:
+            "Segoe Print",
+            "Bradley Hand",
+            "Comic Sans MS",
+            cursive;
+
+        font-size: 15px;
+        font-weight: 500;
+        line-height: 1.5;
+
+        z-index: 3;
+    }
+
+    .message-note.has-photo {
+        flex-direction: column;
+        gap: 10px;
+        padding: 30px 14px 18px;
+        min-height: 58%;
+    }
+
+    .message-note-photo {
+        display: block;
+        width: 92%;
+        max-height: 150px;
+        object-fit: cover;
+        border: 1px solid rgba(130, 120, 105, 0.45);
+        box-shadow: 0 4px 9px rgba(0, 0, 0, 0.14);
+    }
+
+    .message-note-text {
+        flex: 0 0 auto;
+    }
+
+    .message-note::before,
+    .message-note::after {
+        content: "";
+
+        position: absolute;
+
+        top: -8px;
+
+        width: 52px;
+        height: 18px;
+
+        background:
+            linear-gradient(
+                90deg,
+                rgba(238, 220, 164, 0.88),
+                rgba(250, 238, 191, 0.78)
+            );
+
+        box-shadow:
+            0 1px 3px rgba(0, 0, 0, 0.12);
+
+        opacity: 0.94;
+    }
+
+    .message-note::before {
+        left: 16px;
+        transform: rotate(-6deg);
+    }
+
+    .message-note::after {
+        right: 16px;
+        transform: rotate(7deg);
+    }
+
+    /* =========================
+       BACK
+    ========================= */
+
+    .card-back {
+        transform: rotateY(180deg);
+
+        background: #8b0000;
+
+        border: 2px solid #111;
+
+        box-shadow:
+            0 10px 25px rgba(0, 0, 0, 0.35);
+
+        display: flex;
+
+        align-items: center;
+        justify-content: center;
+    }
+
+    .counter {
+        color:
+            rgba(248, 232, 200, 0.95);
+
+        font-size: 29px;
+
+        letter-spacing: 3px;
+
+        text-align: center;
+
+        font-family:
+            Georgia,
+            "Times New Roman",
+            serif;
+    }
+
+    @media (max-width: 600px) {
+        .card-container {
+            width: 200px;
+            height: 292px;
+        }
+
+        .card-front {
+            --pip-size: 58px;
+        }
+
+        .corner {
+            font-size: 27px;
+        }
+
+        .message-note {
+            width: 79%;
+            min-height: 45%;
+            padding: 28px 14px 18px;
+            font-size: 13px;
+        }
+
+        .message-note.has-photo {
+            min-height: 60%;
+            gap: 8px;
+            padding: 28px 12px 16px;
+        }
+
+        .message-note-photo {
+            max-height: 118px;
+        }
+
+        .message-note::before,
+        .message-note::after {
+            width: 44px;
+            height: 16px;
+        }
+    }
+
+    /* =========================
+       NEXT BUTTON
+    ========================= */
+
+    .next-button {
+        position: absolute;
+
+        top: 50%;
+        left: calc(50% + 145px);
+
+        transform:
+            translateY(-50%)
+            translateX(0);
+
+        opacity: 1;
+        pointer-events: auto;
+
+        padding: 12px 20px;
+
+        background:
+            rgba(248, 232, 200, 0.95);
+
+        color: #222;
+
+        border: none;
+        border-radius: 4px;
+
+        font-family:
+            Georgia,
+            "Times New Roman",
+            serif;
+
+        font-size: 15px;
+
+        letter-spacing: 1px;
+
+        cursor: pointer;
+
+        transition:
+            opacity 0.5s ease,
+            transform 0.5s ease;
+
+        z-index: 1000;
+    }
+
+    .next-button:hover {
+        background: white;
+    }
+
+    .show-next .next-button {
+        opacity: 1;
+        pointer-events: auto;
+
+        transform:
+            translateY(-50%)
+            translateX(0);
+    }
+
+    .next-button.final-card-waiting {
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .return-button {
+        position: absolute;
+
+        top: calc(50% + 55px);
+        left: calc(50% + 145px);
+
+        transform: translateX(-15px);
+
+        opacity: 0;
+        pointer-events: none;
+
+        padding: 12px 20px;
+
+        background:
+            rgba(248, 232, 200, 0.95);
+
+        color: #222;
+
+        border: none;
+        border-radius: 4px;
+
+        font-family:
+            Georgia,
+            "Times New Roman",
+            serif;
+
+        font-size: 15px;
+
+        letter-spacing: 1px;
+
+        cursor: pointer;
+
+        transition:
+            opacity 0.5s ease,
+            transform 0.5s ease;
+
+        z-index: 1000;
+    }
+
+    .return-button:hover {
+        background: white;
+    }
+
+    .show-return .return-button {
+        opacity: 1;
+        pointer-events: auto;
+
+        transform: translateX(0);
+    }
+
+
+    /* =========================
+       CARD LIBRARY
+    ========================= */
+
+    .library-button {
+        position: absolute;
+        top: 22px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1200;
+
+        padding: 10px 14px;
+
+        background: rgba(248, 232, 200, 0.95);
+        color: #222;
+
+        border: none;
+        border-radius: 4px;
+
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 14px;
+        letter-spacing: 1px;
+
+        cursor: pointer;
+
+        transition: background 0.2s ease;
+    }
+
+    .library-button:hover,
+    .close-library:hover,
+    .library-detail-back-button:hover {
+        background: white;
+    }
+
+    .library-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 2000;
+
+        overflow-y: auto;
+
+        background: #222;
+
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+
+        transition: opacity 0.25s ease, visibility 0.25s ease;
+    }
+
+    .library-overlay.open {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+    }
+
+    .library-header {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        min-height: 68px;
+        padding: 14px 80px 14px 20px;
+
+        background: rgba(34, 34, 34, 0.96);
+        border-bottom: 1px solid rgba(248, 232, 200, 0.15);
+    }
+
+    .library-title {
+        margin: 0;
+
+        color: #f8e8c8;
+        font-size: 22px;
+        font-weight: normal;
+        letter-spacing: 3px;
+    }
+
+    .library-special-links {
+        position: absolute;
+        left: 22px;
+        display: flex;
+        gap: 8px;
+    }
+
+    .library-special-button:hover:not(:disabled) {
+        background: white;
+    }
+
+    .library-special-button {
+        display: none;
+        padding: 9px 13px;
+        background: rgba(248, 232, 200, 0.95);
+        color: #222;
+        border: none;
+        border-radius: 4px;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 13px;
+        letter-spacing: 1px;
+        cursor: pointer;
+        transition: opacity 0.2s ease, background 0.2s ease;
+    }
+
+    .library-special-button.visible {
+        display: inline-block;
+        opacity: 1;
+    }
+
+    .library-special-button.locked {
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .close-library {
+        position: absolute;
+        top: 14px;
+        right: 18px;
+
+        padding: 10px 16px;
+
+        background: rgba(248, 232, 200, 0.95);
+        color: #222;
+
+        border: none;
+        border-radius: 4px;
+
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 14px;
+        letter-spacing: 1px;
+
+        cursor: pointer;
+    }
+
+    .library-content {
+        width: min(1200px, calc(100% - 40px));
+        margin: 0 auto;
+        padding: 26px 0 40px;
+    }
+
+    .suit-row {
+        margin-bottom: 30px;
+    }
+
+    .suit-row:last-child {
+        margin-bottom: 0;
+    }
+
+    .suit-row-title {
+        margin: 0 0 12px;
+
+        color: #f8e8c8;
+        font-size: 16px;
+        font-weight: normal;
+        letter-spacing: 2px;
+    }
+
+    .library-grid {
+        display: grid;
+        grid-template-columns: repeat(13, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .library-card {
+        position: relative;
+        aspect-ratio: 11 / 16;
+        min-width: 0;
+        container-type: inline-size;
+
+        cursor: pointer;
+    }
+
+    .library-card-front {
+        position: absolute;
+        inset: 0;
+
+        overflow: hidden;
+        border-radius: 7px;
+
+        background:
+            radial-gradient(
+                circle at center,
+                rgba(17, 17, 17, 0.035) 1px,
+                transparent 1px
+            ),
+            #fbfaf7;
+
+        background-size: 7px 7px;
+
+        border: 1px solid #111;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .library-card:hover .library-card-front {
+        transform: translateY(-5px) scale(1.03);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.35);
+    }
+
+    /* Cards not yet reached on the main page stay undiscovered in the library. */
+    .library-card.undiscovered {
+        cursor: default;
+    }
+
+    .library-card.undiscovered .library-card-front {
+        filter: grayscale(1);
+        opacity: 0.34;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+    }
+
+    .library-card.undiscovered:hover .library-card-front {
+        transform: none;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+    }
+
+    .library-pip-field {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        pointer-events: none;
+    }
+
+    .library-pip {
+        position: absolute;
+        transform: translate(-50%, -50%);
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: clamp(12px, 26cqw, 24px);
+        line-height: 1;
+        color: #2D6A4F;
+    }
+
+    .library-pip.red {
+        color: #2D6A4F;
+    }
+
+    .library-pip.inverted {
+        transform: translate(-50%, -50%) rotate(180deg);
+    }
+
+    .library-corner {
+        position: absolute;
+        font-size: clamp(12px, 1.6vw, 20px);
+        line-height: 0.96;
+        color: #111;
+        z-index: 2;
+    }
+
+    .library-corner.top-left {
+        top: 7px;
+        left: 7px;
+    }
+
+    .library-corner.bottom-right {
+        bottom: 7px;
+        right: 7px;
+        transform: rotate(180deg);
+    }
+
+    .library-suit {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        font-size: clamp(24px, 4vw, 50px);
+        color: rgba(17, 17, 17, 0.055);
+    }
+
+    .library-detail-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 20;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        padding: 90px 24px 24px;
+
+        background: rgba(0, 0, 0, 0.34);
+        backdrop-filter: blur(9px);
+        -webkit-backdrop-filter: blur(9px);
+
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+
+        transition: opacity 0.22s ease, visibility 0.22s ease;
+    }
+
+    .library-detail-overlay.open {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+    }
+
+    /* During the return, let the library card underneath become visible
+       while the enlarged card is still physically flying back to it. */
+    .library-detail-overlay.returning {
+        background: transparent;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+    }
+
+    @keyframes libraryCardEnter {
+        0% {
+            opacity: 0.75;
+            transform:
+                translate(var(--start-x, 0px), var(--start-y, 0px))
+                scale(var(--start-scale, 0.25))
+                rotate(var(--start-rotation, 0deg));
+        }
+
+        68% {
+            opacity: 1;
+            transform:
+                translate(0, 0)
+                scale(1.035)
+                rotate(var(--arrival-rotation, 0deg));
+        }
+
+        100% {
+            opacity: 1;
+            transform:
+                translate(0, 0)
+                scale(1)
+                rotate(0deg);
+        }
+    }
+
+    .library-detail-card.animate-in {
+        animation: libraryCardEnter 0.55s cubic-bezier(0.22, 0.9, 0.24, 1.02) both;
+        will-change: transform, opacity;
+    }
+
+    .library-detail-card.animate-out {
+        animation: libraryCardLeave 0.26s ease-in both;
+        pointer-events: none;
+    }
+
+    @keyframes libraryCardLeave {
+        0% {
+            opacity: 1;
+            transform: translate(0, 0) scale(1) rotate(0deg);
+        }
+        100% {
+            opacity: 0;
+            transform:
+                translate(var(--start-x, 0px), var(--start-y, 0px))
+                scale(var(--start-scale, 0.25))
+                rotate(var(--start-rotation, 0deg));
+        }
+    }
+
+    .library-card.selected .library-card-front {
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .library-card.returning-source .library-card-front {
+        transform: none !important;
+    }
+
+    .library-detail-card.return-settled {
+        opacity: 0;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .library-detail-card.animate-in,
+        .library-detail-card.animate-out {
+            animation-duration: 0.01ms;
+        }
+    }
+
+    .library-detail-card {
+        position: relative;
+
+        width: min(360px, 74vw);
+        aspect-ratio: 220 / 320;
+
+        overflow: hidden;
+        border-radius: 14px;
+
+        background:
+            radial-gradient(
+                circle at center,
+                rgba(17, 17, 17, 0.035) 1px,
+                transparent 1px
+            ),
+            #fbfaf7;
+
+        background-size: 9px 9px;
+
+        border: 2px solid #111;
+        box-shadow: 0 24px 55px rgba(0, 0, 0, 0.42);
+    }
+
+    .library-detail-card::before,
+    .library-detail-card::after {
+        content: "";
+        position: absolute;
+        pointer-events: none;
+        z-index: 1;
+    }
+
+    .library-detail-pip-field {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        pointer-events: none;
+    }
+
+    .library-detail-pip {
+        position: absolute;
+        transform: translate(-50%, -50%);
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 76px;
+        line-height: 1;
+        color: #2D6A4F;
+    }
+
+    .library-detail-pip.red {
+        color: #2D6A4F;
+    }
+
+    .library-detail-pip.inverted {
+        transform: translate(-50%, -50%) rotate(180deg);
+    }
+
+    .library-detail-corner {
+        position: absolute;
+        top: 18px;
+        left: 18px;
+        z-index: 4;
+
+        font-size: 35px;
+        line-height: 0.96;
+        color: #111;
+    }
+
+    .library-detail-suit {
+        position: absolute;
+        inset: 0;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        font-size: 130px;
+        color: rgba(17, 17, 17, 0.055);
+        z-index: 1;
+    }
+
+    .library-detail-message-note {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+
+        width: 78%;
+        min-height: 44%;
+
+        transform: translate(-50%, -50%) rotate(-2deg);
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        padding: 36px 24px 26px;
+
+        background:
+            repeating-linear-gradient(
+                to bottom,
+                transparent 0,
+                transparent 30px,
+                rgba(80, 110, 150, 0.12) 31px
+            ),
+            #fffdf7;
+
+        border: 1px solid rgba(130, 120, 105, 0.45);
+
+        box-shadow:
+            0 10px 18px rgba(0, 0, 0, 0.2),
+            0 1px 2px rgba(0, 0, 0, 0.12);
+
+        color: #25211d;
+        text-align: center;
+
+        font-family:
+            "Segoe Print",
+            "Bradley Hand",
+            "Comic Sans MS",
+            cursive;
+
+        font-size: 17px;
+        line-height: 1.5;
+
+        z-index: 3;
+    }
+
+    .library-detail-message-note.has-photo {
+        flex-direction: column;
+        gap: 14px;
+        padding: 36px 20px 24px;
+        min-height: 58%;
+    }
+
+    .library-detail-message-photo {
+        display: block;
+        width: 92%;
+        max-height: 210px;
+        object-fit: cover;
+        border: 1px solid rgba(130, 120, 105, 0.45);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.14);
+    }
+
+    .library-detail-message-text {
+        flex: 0 0 auto;
+    }
+
+    .library-detail-message-note::before,
+    .library-detail-message-note::after {
+        content: "";
+        position: absolute;
+        top: -10px;
+
+        width: 68px;
+        height: 21px;
+
+        background:
+            linear-gradient(
+                90deg,
+                rgba(238, 220, 164, 0.88),
+                rgba(250, 238, 191, 0.78)
+            );
+
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+    }
+
+    .library-detail-message-note::before {
+        left: 22px;
+        transform: rotate(-6deg);
+    }
+
+    .library-detail-message-note::after {
+        right: 22px;
+        transform: rotate(7deg);
+    }
+
+    .library-detail-back-button {
+        position: absolute;
+        top: 20px;
+        left: 22px;
+
+        padding: 11px 18px;
+
+        background: rgba(248, 232, 200, 0.97);
+        color: #222;
+
+        border: none;
+        border-radius: 4px;
+
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 14px;
+        letter-spacing: 1px;
+
+        cursor: pointer;
+    }
+
+    @media (max-width: 800px) {
+        .library-content {
+            width: calc(100% - 20px);
+        }
+
+        .library-grid {
+            gap: 4px;
+        }
+
+        .library-header {
+            padding: 14px 16px 58px;
+        }
+
+        .library-title {
+            font-size: 18px;
+        }
+
+        .library-special-links {
+            left: 16px;
+            bottom: 12px;
+        }
+
+        .ending-final-pips span {
+            font-size: 40px;
+        }
+
+        .library-button {
+            top: 14px;
+            left: 50%;
+            right: auto;
+            transform: translateX(-50%);
+        }
+    }
+
+
+
+    /* =========================
+       INTRO / LOGIN
+    ========================= */
+
+    .intro-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 5000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #222;
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transition: opacity 0.55s ease, visibility 0.55s ease;
+    }
+
+    .intro-overlay.hidden {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+    }
+
+    .intro-stage {
+        position: relative;
+        width: min(92vw, 520px);
+        min-height: 520px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+    }
+
+    .intro-login {
+        width: min(88vw, 320px);
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        align-items: stretch;
+        transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+
+    .intro-login.hidden {
+        opacity: 0;
+        transform: translateY(-14px);
+        pointer-events: none;
+    }
+
+    .intro-title {
+        margin: 0 0 8px;
+        color: #f8e8c8;
+        font-size: 24px;
+        font-weight: normal;
+        letter-spacing: 2px;
+    }
+
+    .intro-input {
+        width: 100%;
+        padding: 12px 14px;
+        background: #fbfaf7;
+        color: #222;
+        border: 1px solid rgba(0, 0, 0, 0.35);
+        border-radius: 4px;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 15px;
+        outline: none;
+        user-select: text;
+    }
+
+    .intro-input:focus {
+        border-color: #f8e8c8;
+    }
+
+    .intro-button {
+        margin-top: 4px;
+        padding: 12px 20px;
+        background: rgba(248, 232, 200, 0.95);
+        color: #222;
+        border: none;
+        border-radius: 4px;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 15px;
+        letter-spacing: 1px;
+        cursor: pointer;
+    }
+
+    .intro-button:hover {
+        background: white;
+    }
+
+    .intro-error {
+        min-height: 18px;
+        margin: 0;
+        color: #f8e8c8;
+        font-size: 13px;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+    }
+
+    .intro-error.visible {
+        opacity: 1;
+    }
+
+    .intro-gift-stage {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: opacity 0.45s ease, visibility 0.45s ease;
+    }
+
+    .intro-gift-stage.active {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .intro-message {
+        margin: 0 0 32px;
+        color: #f8e8c8;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 22px;
+        font-weight: normal;
+        letter-spacing: 1px;
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    .intro-gift-stage.active .intro-message {
+        animation:
+            introMessageIn 0.75s ease-out forwards,
+            introMessageFloat 3.6s ease-in-out 0.75s infinite;
+        will-change: transform;
+    }
+
+    .intro-gift {
+        position: relative;
+        width: 210px;
+        height: 170px;
+        overflow: visible;
+        isolation: isolate;
+    }
+
+    .intro-gift-stage.active .intro-gift {
+        animation: introGiftFloat 4.2s ease-in-out 0.65s infinite;
+        will-change: transform;
+    }
+
+    .intro-gift-box {
+        position: absolute;
+        left: 20px;
+        right: 20px;
+        bottom: 12px;
+        height: 118px;
+        background: #8b0000;
+        border: 2px solid #111;
+        border-radius: 5px;
+        box-shadow: 0 12px 25px rgba(0, 0, 0, 0.35);
+        z-index: 1;
+    }
+
+    .intro-gift-ribbon-v {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 50%;
+        width: 30px;
+        transform: translateX(-50%);
+        background: rgba(248, 232, 200, 0.95);
+    }
+
+    .intro-gift-ribbon-h {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 46px;
+        height: 28px;
+        background: rgba(248, 232, 200, 0.95);
+    }
+
+    .intro-gift-lid {
+        position: absolute;
+        left: 10px;
+        right: 10px;
+        top: 6px;
+        height: 34px;
+        background: #8b0000;
+        border: 2px solid #111;
+        border-radius: 5px;
+
+        /*
+         * The lid is hinged along its RIGHT edge. It swings a full
+         * 90° open from that edge, clearing the top of the box.
+         */
+        transform-origin: 100% 50%;
+        transform: rotate(0deg);
+        z-index: 4;
+        overflow: visible;
+        backface-visibility: hidden;
+        -webkit-backface-visibility: hidden;
+    }
+
+    .intro-gift-lid::before {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: -18px;
+        width: 18px;
+        height: 42px;
+        transform: translateX(-50%);
+        background: rgba(248, 232, 200, 0.95);
+    }
+
+    .intro-gift-bow {
+        position: absolute;
+        top: 2px;
+        left: 50%;
+        width: 70px;
+        height: 38px;
+        transform: translateX(-50%);
+        z-index: 5;
+    }
+
+    .intro-gift-bow::before,
+    .intro-gift-bow::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        width: 32px;
+        height: 24px;
+        border: 2px solid #111;
+        background: rgba(248, 232, 200, 0.95);
+        border-radius: 50% 50% 45% 45%;
+    }
+
+    .intro-gift-bow::before {
+        left: 0;
+        transform: rotate(24deg);
+    }
+
+    .intro-gift-bow::after {
+        right: 0;
+        transform: rotate(-24deg);
+    }
+
+    .intro-gift-open .intro-gift-bow {
+        animation: introGiftBowOpen 0.65s ease-in-out forwards;
+        z-index: 5;
+    }
+
+    .intro-gift-open .intro-gift-lid {
+        animation: introGiftLidOpen 1.05s cubic-bezier(.22,.75,.22,1) 0.72s forwards;
+        z-index: 4;
+    }
+
+    .intro-gift-card {
+        position: absolute;
+        left: 50%;
+        top: 42px;
+        width: 92px;
+        height: 134px;
+        background: #fbfaf7;
+        border: 2px solid #111;
+        border-radius: 7px;
+        transform: translate(-50%, 30px) rotate(-3deg) scale(0.88);
+        opacity: 0;
+        z-index: 3;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.28);
+    }
+
+    .intro-gift-card::before {
+        content: "♥";
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        color: #b0182b;
+        font-size: 22px;
+    }
+
+    .intro-gift-card::after {
+        content: "";
+        position: absolute;
+        inset: 29px 14px 14px;
+        border: 1px dashed rgba(34, 34, 34, 0.28);
+        border-radius: 3px;
+    }
+
+    .intro-gift-open .intro-gift-card {
+        animation: introGiftCardRise 1.15s cubic-bezier(.18,.78,.28,1) 1.05s forwards;
+    }
+
+    .intro-enter-fade {
+        opacity: 0;
+        transform: translateY(18px);
+        transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+
+    .intro-enter-fade.visible {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .main-area.intro-hidden {
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .main-area.intro-reveal {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    .main-area.intro-reveal .card-container.active {
+        animation: introMainCardReveal 0.8s cubic-bezier(.18,.78,.28,1) both;
+    }
+
+    @keyframes introMessageIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes introMessageFloat {
+        0%, 100% {
+            transform: translateY(0);
+        }
+        50% {
+            transform: translateY(-5px);
+        }
+    }
+
+    @keyframes introGiftFloat {
+        0%, 100% {
+            transform: translateY(0);
+        }
+        50% {
+            transform: translateY(-7px);
+        }
+    }
+
+    @keyframes introGiftLidOpen {
+        0% {
+            transform: rotate(0deg);
+        }
+        100% {
+            transform: rotate(90deg);
+        }
+    }
+
+    @keyframes introGiftBowOpen {
+        0% {
+            transform: translateX(-50%) scale(1) translateY(0);
+            opacity: 1;
+        }
+        70% {
+            transform: translateX(-50%) scale(0.96) translateY(-8px);
+            opacity: 1;
+        }
+        100% {
+            transform: translateX(-50%) scale(0.9) translateY(-20px);
+            opacity: 0;
+        }
+    }
+
+    @keyframes introGiftCardRise {
+        0% {
+            opacity: 0;
+            transform: translate(-50%, 30px) rotate(-3deg) scale(0.88);
+        }
+        100% {
+            opacity: 1;
+            transform: translate(-50%, -36px) rotate(-3deg) scale(1);
+        }
+    }
+
+    @keyframes introMainCardReveal {
+        0% {
+            opacity: 0;
+            transform: translate(-50%, calc(-50% + 95px));
+        }
+        100% {
+            opacity: 1;
+            transform: translate(-50%, -50%);
+        }
+    }
+
+    @media (max-width: 600px) {
+        .intro-stage {
+            min-height: 460px;
+        }
+
+        .intro-message {
+            font-size: 19px;
+        }
+    }
+
+
+    /* =========================
+       INTRO VISUAL STYLE
+       Simple charm + forest-green palette.
+       Functional behavior/timing above remains unchanged.
+    ========================= */
+
+    .intro-overlay {
+        background-color: #0B3D2E;
+        background-image:
+            radial-gradient(circle at 50% 42%, rgba(45, 106, 79, 0.34) 0, rgba(45, 106, 79, 0) 48%),
+            radial-gradient(circle at 50% 50%, rgba(230, 204, 178, 0.035) 0 1px, transparent 1.4px);
+        background-size: auto, 22px 22px;
+    }
+
+    .intro-overlay::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: radial-gradient(circle at center, transparent 45%, rgba(0, 0, 0, 0.12) 100%);
+    }
+
+    .intro-bg-suits {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    .intro-bg-suits span {
+        position: absolute;
+        color: rgba(230, 204, 178, 0.08);
+        font-family: Georgia, "Times New Roman", serif;
+        line-height: 1;
+        user-select: none;
+    }
+
+    .intro-bg-suits span:nth-child(1) {
+        top: 5vh;
+        left: 5vw;
+        font-size: clamp(70px, 10vw, 120px);
+        transform: rotate(-10deg);
+    }
+
+    .intro-bg-suits span:nth-child(2) {
+        top: 7vh;
+        right: 5vw;
+        font-size: clamp(64px, 9vw, 108px);
+        transform: rotate(9deg);
+    }
+
+    .intro-bg-suits span:nth-child(3) {
+        bottom: 5vh;
+        left: 7vw;
+        font-size: clamp(62px, 9vw, 112px);
+        transform: rotate(8deg);
+    }
+
+    .intro-bg-suits span:nth-child(4) {
+        bottom: 6vh;
+        right: 7vw;
+        font-size: clamp(70px, 10vw, 120px);
+        transform: rotate(-8deg);
+    }
+
+    .intro-stage {
+        z-index: 1;
+    }
+
+    .intro-stage {
+        filter: none;
+    }
+
+    /* Main-page corner suit pips: quiet, playful, and always behind the deck. */
+    .main-bg-suits {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    .main-bg-suits span {
+        position: absolute;
+        color: rgba(45, 106, 79, 0.46);
+        font-family: Georgia, "Times New Roman", serif;
+        line-height: 1;
+        user-select: none;
+        animation: mainSuitBob 4.8s ease-in-out infinite;
+        will-change: transform;
+    }
+
+    .main-bg-suits span:nth-child(1) {
+        top: 5vh;
+        left: 5vw;
+        font-size: clamp(70px, 10vw, 120px);
+        --base-rotation: -10deg;
+        animation-delay: -0.8s;
+    }
+
+    .main-bg-suits span:nth-child(2) {
+        top: 7vh;
+        right: 5vw;
+        font-size: clamp(64px, 9vw, 108px);
+        --base-rotation: 9deg;
+        animation-delay: -2.1s;
+    }
+
+    .main-bg-suits span:nth-child(3) {
+        bottom: 5vh;
+        left: 7vw;
+        font-size: clamp(62px, 9vw, 112px);
+        --base-rotation: 8deg;
+        animation-delay: -3.4s;
+    }
+
+    .main-bg-suits span:nth-child(4) {
+        bottom: 6vh;
+        right: 7vw;
+        font-size: clamp(70px, 10vw, 120px);
+        --base-rotation: -8deg;
+        animation-delay: -1.5s;
+    }
+
+    @keyframes mainSuitBob {
+        0%, 100% {
+            transform: translateY(0) rotate(var(--base-rotation));
+        }
+        50% {
+            transform: translateY(-8px) rotate(calc(var(--base-rotation) + 1.5deg));
+        }
+    }
+
+    .main-ps {
+        position: absolute;
+        top: 24px;
+        right: 26px;
+        margin: 0;
+        color: rgba(248, 232, 200, 0.68);
+        font-family: "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive;
+        font-size: 14px;
+        letter-spacing: 0.3px;
+        transform: rotate(1deg);
+        z-index: 1100;
+        pointer-events: none;
+    }
+
+    /* A slim native scrollbar controls the horizontal history pile.
+       The cards themselves remain where they are; scrolling simply shifts
+       the entire bottom pile left/right without disturbing the active card. */
+    .history-scrollbar {
+        position: absolute;
+        left: 7vw;
+        right: 7vw;
+        bottom: 7px;
+        height: 11px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        z-index: 900;
+        opacity: 0.72;
+        scrollbar-color: rgba(248, 232, 200, 0.42) transparent;
+        scrollbar-width: thin;
+        overscroll-behavior: contain;
+        scroll-behavior: auto;
+        touch-action: pan-x;
+    }
+
+    .history-scrollbar::-webkit-scrollbar {
+        height: 8px;
+    }
+
+    .history-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .history-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(248, 232, 200, 0.42);
+        border-radius: 999px;
+    }
+
+    .history-scrollbar-spacer {
+        height: 1px;
+        width: 100%;
+    }
+
+    .history-scrollbar.disabled {
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    /* Keep the sign-in deliberately simple: no panel, ornament, or heavy UI chrome. */
+    .intro-login {
+        width: min(88vw, 300px);
+        padding: 0;
+        gap: 10px;
+        background: transparent;
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+        overflow: visible;
+    }
+
+    .intro-login::before,
+    .intro-login::after {
+        display: none;
+        content: none;
+    }
+
+    .intro-title {
+        margin: 0 0 12px;
+        color: #E6CCB2;
+        font-size: 24px;
+        font-weight: normal;
+        letter-spacing: 1px;
+    }
+
+    .intro-input {
+        padding: 11px 13px;
+        background: #E6CCB2;
+        color: #1F2937;
+        border: 1px solid rgba(31, 41, 55, 0.28);
+        border-radius: 3px;
+        box-shadow: none;
+        transition: border-color 0.2s ease, background 0.2s ease;
+    }
+
+    .intro-input::placeholder {
+        color: rgba(31, 41, 55, 0.62);
+    }
+
+    .intro-input:focus {
+        border-color: #B08968;
+        background: #F0DCC7;
+        box-shadow: none;
+        transform: none;
+    }
+
+    .intro-button {
+        margin-top: 4px;
+        padding: 11px 18px;
+        background: #B08968;
+        color: #1F2937;
+        border: 1px solid rgba(31, 41, 55, 0.28);
+        border-radius: 3px;
+        box-shadow: none;
+        transition: background 0.18s ease, transform 0.18s ease;
+    }
+
+    .intro-button:hover {
+        background: #E6CCB2;
+        transform: translateY(-1px);
+        box-shadow: none;
+    }
+
+    .intro-button:active {
+        transform: translateY(1px);
+        box-shadow: none;
+    }
+
+    .intro-error {
+        color: #E6CCB2;
+    }
+
+    .intro-message {
+        color: #E6CCB2;
+        text-shadow: none;
+        letter-spacing: 1px;
+    }
+
+    /* A cleaner, single-material gift using the same palette. */
+    .intro-gift-box {
+        background: #8b0000;
+        border-color: #1F2937;
+        box-shadow: 0 11px 22px rgba(31, 41, 55, 0.34);
+    }
+
+    .intro-gift-ribbon-v,
+    .intro-gift-ribbon-h {
+        background: #E6CCB2;
+        box-shadow: none;
+    }
+
+    .intro-gift-lid {
+        background: #8b0000;
+        border-color: #1F2937;
+        box-shadow: 0 5px 10px rgba(31, 41, 55, 0.22);
+    }
+
+    .intro-gift-lid::before {
+        background: #E6CCB2;
+        box-shadow: none;
+    }
+
+    .intro-gift-bow::before,
+    .intro-gift-bow::after {
+        background: #B08968;
+        border-color: #1F2937;
+        box-shadow: none;
+    }
+
+    .intro-gift-bow-knot {
+        background: #B08968;
+        border-color: #1F2937;
+        box-shadow: none;
+    }
+
+    .intro-gift-card {
+        box-shadow: 0 10px 20px rgba(31, 41, 55, 0.28);
+    }
+
+    .intro-gift-card::before {
+        color: #2D6A4F;
+    }
+
+    @media (max-width: 600px) {
+        .intro-login {
+            width: min(88vw, 300px);
+            padding: 0;
+        }
+    }
+
+
+
+    /* =========================
+       ENDING EXPERIENCE
+    ========================= */
+
+    .ending-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 6000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #0b3d2e;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: opacity 0.55s ease, visibility 0.55s ease;
+    }
+
+    .ending-overlay.open {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+    }
+
+    .ending-stage {
+        position: relative;
+        width: min(92vw, 720px);
+        min-height: 560px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+    }
+
+    .ending-gift-stage {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.55s ease;
+        z-index: 1;
+    }
+
+    .ending-gift-stage.active {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    .ending-message {
+        margin: 0 0 32px;
+        color: #f8e8c8;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 24px;
+        font-weight: normal;
+        letter-spacing: 1px;
+        opacity: 0;
+        transform: translateY(10px);
+        transition: opacity 0.65s ease, transform 0.65s ease;
+    }
+
+    .ending-overlay.open .ending-message {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .ending-gift {
+        margin-top: 80px;
+    }
+
+    /* The ending gift appears already open; there is no second lid animation. */
+    .ending-gift.ending-already-open .intro-gift-lid {
+        animation: none !important;
+        transform: rotate(90deg) !important;
+    }
+
+    .ending-gift.ending-already-open .intro-gift-bow {
+        animation: none !important;
+        transform: translateX(-50%) scale(0.9) translateY(-20px) !important;
+        opacity: 0;
+    }
+
+    .ending-gift.ending-already-open .intro-gift-card {
+        display: none;
+    }
+
+    .ending-paper-letter {
+        position: absolute;
+        z-index: 3;
+        width: min(86vw, 620px);
+        padding: 34px 30px 28px 94px;
+        background:
+            linear-gradient(90deg,
+                transparent 67px,
+                rgba(176, 24, 43, 0.16) 68px,
+                rgba(176, 24, 43, 0.16) 69px,
+                transparent 70px
+            ),
+            repeating-linear-gradient(
+                to bottom,
+                transparent 0,
+                transparent 25px,
+                rgba(80, 110, 150, 0.13) 26px
+            ),
+            #fffdf7;
+        border: 1px solid rgba(130, 120, 105, 0.45);
+        box-shadow:
+            0 18px 35px rgba(0, 0, 0, 0.28),
+            0 2px 4px rgba(0, 0, 0, 0.10);
+        opacity: 0;
+        transform: translateY(34px) scale(0.96) rotate(-1deg);
+        pointer-events: none;
+        transition: opacity 0.65s ease, transform 0.65s ease;
+        overflow: hidden;
+    }
+
+    .ending-letter-pips {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 1;
+    }
+
+    .ending-letter-pips span {
+        position: absolute;
+        color: rgba(45, 106, 79, 0.42);
+        font-family: Georgia, "Times New Roman", serif;
+        line-height: 1;
+        font-size: 42px;
+        user-select: none;
+    }
+
+    .ending-letter-pips .pip-1 {
+        top: 18px;
+        left: 22px;
+        transform: rotate(-8deg);
+    }
+
+    .ending-letter-pips .pip-2 {
+        top: 18px;
+        right: 22px;
+        transform: rotate(8deg);
+    }
+
+    .ending-letter-pips .pip-3 {
+        bottom: 18px;
+        left: 22px;
+        transform: rotate(8deg);
+    }
+
+    .ending-letter-pips .pip-4 {
+        bottom: 18px;
+        right: 22px;
+        transform: rotate(-8deg);
+    }
+
+    .ending-paper-letter::before,
+    .ending-paper-letter::after {
+        content: "";
+        position: absolute;
+        top: -9px;
+        width: 72px;
+        height: 20px;
+        background: rgba(238, 220, 164, 0.82);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.10);
+        pointer-events: none;
+    }
+
+    .ending-paper-letter::before {
+        left: 28px;
+        transform: rotate(-5deg);
+    }
+
+    .ending-paper-letter::after {
+        right: 28px;
+        transform: rotate(6deg);
+    }
+
+    .ending-paper-letter.open {
+        opacity: 1;
+        transform: translateY(0) scale(1) rotate(-1deg);
+        pointer-events: auto;
+    }
+
+    .ending-letter-title {
+        margin: 0 0 20px;
+        color: #25211d;
+        font-family: "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive;
+        font-size: 22px;
+        font-weight: 500;
+    }
+
+    /* Temporary square placeholder for the future video. */
+    .ending-video-placeholder {
+        width: min(56vw, 320px);
+        aspect-ratio: 1 / 1;
+        margin: 0 auto 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #222;
+        color: #f8e8c8;
+        border: 1px dashed rgba(248, 232, 200, 0.45);
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 15px;
+        letter-spacing: 1px;
+    }
+
+    .ending-finish-button {
+        display: block;
+        margin: 0 auto;
+        padding: 11px 20px;
+        background: rgba(248, 232, 200, 0.97);
+        color: #222;
+        border: none;
+        border-radius: 4px;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 15px;
+        letter-spacing: 1px;
+        cursor: pointer;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.45s ease;
+    }
+
+    .ending-finish-button.visible {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    .ending-final {
+        display: none;
+        position: relative;
+        z-index: 4;
+        width: min(88vw, 700px);
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 22px;
+        text-align: center;
+    }
+
+    .ending-final.visible {
+        display: flex;
+    }
+
+    .ending-final-photo {
+        display: block;
+        width: min(78vw, 520px);
+        max-height: 62vh;
+        object-fit: contain;
+        animation: endingFinalBob 4.8s ease-in-out 0.3s infinite;
+    }
+
+    .ending-final-text {
+        margin: 0;
+        color: #f8e8c8;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 30px;
+        line-height: 1.25;
+        font-weight: normal;
+        animation: endingFinalBob 4.4s ease-in-out infinite;
+    }
+
+    .ending-final-pips {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    .ending-final-pips span {
+        position: absolute;
+        color: rgba(45, 106, 79, 0.34);
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 56px;
+        line-height: 1;
+        user-select: none;
+        animation: endingPipBob 5.2s ease-in-out infinite;
+    }
+
+    .ending-final-pips .pip-1 { top: 18px; left: 18px; transform: rotate(-8deg); animation-delay: 0s; }
+    .ending-final-pips .pip-2 { top: 18px; right: 18px; transform: rotate(8deg); animation-delay: 0.8s; }
+    .ending-final-pips .pip-3 { bottom: 18px; left: 18px; transform: rotate(8deg); animation-delay: 1.6s; }
+    .ending-final-pips .pip-4 { bottom: 18px; right: 18px; transform: rotate(-8deg); animation-delay: 2.4s; }
+
+    .ending-final-photo,
+    .ending-final-text,
+    .ending-back-to-cards {
+        position: relative;
+        z-index: 1;
+    }
+
+    .ending-back-to-cards {
+        padding: 11px 18px;
+        background: rgba(248, 232, 200, 0.95);
+        color: #222;
+        border: none;
+        border-radius: 4px;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 14px;
+        letter-spacing: 1px;
+        cursor: pointer;
+    }
+
+    .ending-back-to-cards:hover {
+        background: white;
+    }
+
+    @keyframes endingPipBob {
+        0%, 100% {
+            margin-top: 0;
+        }
+        50% {
+            margin-top: -6px;
+        }
+    }
+
+    @keyframes endingFinalBob {
+        0%, 100% {
+            transform: translateY(0);
+        }
+        50% {
+            transform: translateY(-6px);
+        }
+    }
+
+    @media (max-width: 600px) {
+        .ending-stage {
+            min-height: 500px;
+        }
+
+        .ending-message {
+            font-size: 20px;
+        }
+
+        .ending-gift {
+            margin-top: 68px;
+        }
+
+        .ending-paper-letter {
+            width: min(90vw, 560px);
+            padding: 28px 18px 22px 72px;
+        }
+
+        .ending-letter-pips span {
+            font-size: 34px;
+        }
+
+        .ending-letter-pips .pip-1 { left: 16px; top: 14px; }
+        .ending-letter-pips .pip-2 { right: 16px; top: 14px; }
+        .ending-letter-pips .pip-3 { left: 16px; bottom: 14px; }
+        .ending-letter-pips .pip-4 { right: 16px; bottom: 14px; }
+
+        .ending-final-text {
+            font-size: 24px;
+        }
+    }
+
+</style>
+</head>
+
+<body>
+
+
+<div class="intro-overlay" id="introOverlay">
+    <div class="intro-bg-suits" aria-hidden="true">
+        <span>♠</span>
+        <span>♥</span>
+        <span>♦</span>
+        <span>♣</span>
+    </div>
+
+    <div class="intro-stage">
+
+        <form class="intro-login" id="introLogin">
+            <h1 class="intro-title">Sign in</h1>
+
+            <input
+                class="intro-input"
+                id="introUsername"
+                type="text"
+                placeholder="Username"
+                autocomplete="username"
+                required
+            >
+
+            <input
+                class="intro-input"
+                id="introPassword"
+                type="password"
+                placeholder="Password"
+                autocomplete="current-password"
+                required
+            >
+
+            <button class="intro-button" type="submit">Enter</button>
+            <p class="intro-error" id="introError">That username or password is not right.</p>
+        </form>
+
+        <div class="intro-gift-stage" id="introGiftStage">
+            <p class="intro-message">I made you a lil' something. ;)</p>
+
+            <div class="intro-gift" id="introGift">
+                <div class="intro-gift-card"></div>
+                <div class="intro-gift-box">
+                    <div class="intro-gift-ribbon-v"></div>
+                    <div class="intro-gift-ribbon-h"></div>
+                </div>
+                <div class="intro-gift-lid"></div>
+                <div class="intro-gift-bow">
+                    <span class="intro-gift-bow-knot"></span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="main-area intro-hidden" id="mainArea">
+
+    <div class="main-bg-suits" aria-hidden="true">
+        <span>♠</span>
+        <span>♥</span>
+        <span>♦</span>
+        <span>♣</span>
+    </div>
+
+    <p class="main-ps">PS, flip the card</p>
+
+    <div class="history-scrollbar" id="historyScrollbar" aria-label="Scroll through previous cards">
+        <div class="history-scrollbar-spacer" id="historyScrollbarSpacer"></div>
+    </div>
+
+    <button
+        class="next-button"
+        id="nextButton"
+    >
+        Next
+    </button>
+
+    <button
+        class="return-button"
+        id="returnButton"
+    >
+        Return to newest
+    </button>
+
+    <button
+        class="library-button"
+        id="libraryButton"
+    >
+        Browse cards
+    </button>
+
+</div>
+
+
+<div class="ending-overlay" id="endingOverlay">
+    <div class="ending-stage">
+
+        <div class="ending-gift-stage" id="endingGiftStage">
+            <p class="ending-message" id="endingMessage">There's one more thing left.</p>
+
+            <div class="intro-gift ending-gift ending-already-open" id="endingGift">
+                <div class="intro-gift-card"></div>
+                <div class="intro-gift-box">
+                    <div class="intro-gift-ribbon-v"></div>
+                    <div class="intro-gift-ribbon-h"></div>
+                </div>
+                <div class="intro-gift-lid"></div>
+                <div class="intro-gift-bow">
+                    <span class="intro-gift-bow-knot"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="ending-paper-letter" id="endingLetter">
+            <div class="ending-letter-pips" aria-hidden="true">
+                <span class="pip-1">♠</span>
+                <span class="pip-2">♥</span>
+                <span class="pip-3">♦</span>
+                <span class="pip-4">♣</span>
+            </div>
+            <h2 class="ending-letter-title">A little letter</h2>
+            <div class="ending-video-placeholder" id="endingVideoPlaceholder">Video goes here</div>
+            <button class="ending-finish-button" id="endingFinishButton" type="button">Finish</button>
+        </div>
+
+        <div class="ending-final" id="endingFinal">
+            <div class="ending-final-pips" aria-hidden="true">
+                <span class="pip-1">♠</span>
+                <span class="pip-2">♥</span>
+                <span class="pip-3">♦</span>
+                <span class="pip-4">♣</span>
+            </div>
+
+            <img
+                class="ending-final-photo"
+                id="endingFinalPhoto"
+                src="us.jpg"
+                alt="A photo of us"
+            >
+            <p class="ending-final-text">Happy birthday Liv, I love you &lt;3</p>
+
+            <button class="ending-back-to-cards" id="endingBackToCards" type="button">Back to cards</button>
+        </div>
+
+    </div>
+</div>
+
+<div class="library-overlay" id="libraryOverlay">
+    <div class="library-header">
+        <h1 class="library-title">Card Library</h1>
+
+        <div class="library-special-links">
+            <button class="library-special-button locked" id="libraryVideoButton" type="button" disabled>Video</button>
+            <button class="library-special-button locked" id="libraryEndButton" type="button" disabled>End screen</button>
+        </div>
+
+        <button class="close-library" id="closeLibrary">Back</button>
+    </div>
+    <div class="library-content" id="libraryContent"></div>
+
+    <div class="library-detail-overlay" id="libraryDetailOverlay">
+        <div class="library-detail-card" id="libraryDetailCard"></div>
+    </div>
+</div>
+
+
+<script>
+
+
+
+    /* ==================================================
+       INTRO / LOGIN
+       ================================================== */
+
+    /*
+     * Change these two values to the credentials you want.
+     * This is an entrance gate, not real security: the credentials live
+     * in this single HTML file and can be inspected by someone with access.
+     */
+    const LOGIN_USERNAME = "Livery";
+    const LOGIN_PASSWORD = "BirthdayG1rl@29";
+
+    const introOverlay =
+        document.getElementById("introOverlay");
+
+    const introLogin =
+        document.getElementById("introLogin");
+
+    const introUsername =
+        document.getElementById("introUsername");
+
+    const introPassword =
+        document.getElementById("introPassword");
+
+    const introError =
+        document.getElementById("introError");
+
+    const introGiftStage =
+        document.getElementById("introGiftStage");
+
+    const introGift =
+        document.getElementById("introGift");
+
+    let introFinished = false;
+
+    function beginGiftSequence() {
+        if (introFinished) {
+            return;
+        }
+
+        introLogin.classList.add("hidden");
+
+        setTimeout(() => {
+            introGiftStage.classList.add("active");
+        }, 520);
+
+        /*
+         * Give the message and present a little more time on screen before
+         * anything opens. The bow then separates first, followed by the lid.
+         */
+        setTimeout(() => {
+            introGift.classList.add("intro-gift-open");
+        }, 2800);
+
+        setTimeout(() => {
+            revealMainExperience();
+        }, 5050);
+    }
+
+    function revealMainExperience() {
+        if (introFinished) {
+            return;
+        }
+
+        introFinished = true;
+
+        const mainArea = document.getElementById("mainArea");
+        mainArea.classList.remove("intro-hidden");
+        mainArea.classList.add("intro-reveal");
+
+        setTimeout(() => {
+            introOverlay.classList.add("hidden");
+        }, 120);
+    }
+
+    introLogin.addEventListener("submit", event => {
+        event.preventDefault();
+
+        const username = introUsername.value.trim();
+        const password = introPassword.value;
+
+        const valid =
+            username === LOGIN_USERNAME &&
+            password === LOGIN_PASSWORD;
+
+        introError.classList.toggle("visible", !valid);
+
+        if (!valid) {
+            introPassword.select();
+            return;
+        }
+
+        introError.classList.remove("visible");
+        beginGiftSequence();
+    });
+
+    introUsername.focus();
+
+
+
+
+
+    /* ==================================================
+       ENDING EXPERIENCE
+       ================================================== */
+
+    const ENDING_PHOTO_SRC = "us.jpg";
+
+    const endingOverlay =
+        document.getElementById("endingOverlay");
+
+    const endingGiftStage =
+        document.getElementById("endingGiftStage");
+
+    const endingGift =
+        document.getElementById("endingGift");
+
+    const endingLetter =
+        document.getElementById("endingLetter");
+
+    const endingFinishButton =
+        document.getElementById("endingFinishButton");
+
+    const endingFinal =
+        document.getElementById("endingFinal");
+
+    const endingFinalPhoto =
+        document.getElementById("endingFinalPhoto");
+
+    let endingStarted = false;
+    let endingComplete = false;
+    let endingLetterTimer = null;
+    let endingFinishTimer = null;
+    let finalCardContinueTimer = null;
+    let finalCardContinueReady = false;
+    let videoViewed = false;
+    let endScreenViewed = false;
+
+    const libraryVideoButton =
+        document.getElementById("libraryVideoButton");
+
+    const libraryEndButton =
+        document.getElementById("libraryEndButton");
+
+    const endingBackToCards =
+        document.getElementById("endingBackToCards");
+
+    function updateNextButtonLabel() {
+        if (state === "revisiting") {
+            nextButton.textContent = "Next";
+            nextButton.classList.remove("final-card-waiting");
+            return;
+        }
+
+        if (currentIndex === cards.length - 1 && !endingStarted) {
+            nextButton.textContent = "Continue?";
+            nextButton.classList.toggle("final-card-waiting", !finalCardContinueReady);
+            return;
+        }
+
+        nextButton.textContent = "Next";
+        nextButton.classList.remove("final-card-waiting");
+    }
+
+    function startFinalCardWait() {
+        if (currentIndex !== cards.length - 1 || endingStarted) {
+            return;
+        }
+
+        clearTimeout(finalCardContinueTimer);
+        finalCardContinueReady = false;
+        updateNextButtonLabel();
+
+        finalCardContinueTimer = setTimeout(() => {
+            finalCardContinueReady = true;
+            updateNextButtonLabel();
+        }, 5000);
+    }
+
+    function updateLibrarySpecialButtons() {
+        const videoEnabled = videoViewed;
+        const endEnabled = endScreenViewed;
+
+        libraryVideoButton.disabled = !videoEnabled;
+        libraryVideoButton.classList.toggle("visible", videoEnabled);
+        libraryVideoButton.classList.toggle("locked", !videoEnabled);
+
+        libraryEndButton.disabled = !endEnabled;
+        libraryEndButton.classList.toggle("visible", endEnabled);
+        libraryEndButton.classList.toggle("locked", !endEnabled);
+    }
+
+    updateLibrarySpecialButtons();
+
+    function showEndingLetterScreen() {
+        clearTimeout(endingFinishTimer);
+        endingComplete = false;
+        endingGiftStage.classList.remove("active");
+        endingFinal.classList.remove("visible");
+        endingLetter.classList.add("open");
+        endingLetter.style.pointerEvents = "auto";
+        endingFinishButton.classList.add("visible");
+        endingOverlay.classList.add("open");
+        endingStarted = true;
+        state = "ending";
+    }
+
+    function showEndingFinalScreen() {
+        clearTimeout(endingLetterTimer);
+        clearTimeout(endingFinishTimer);
+        endingGiftStage.classList.remove("active");
+        endingLetter.classList.remove("open");
+        endingLetter.style.pointerEvents = "none";
+        endingFinishButton.classList.remove("visible");
+        endingFinalPhoto.src = ENDING_PHOTO_SRC;
+        endingFinal.classList.add("visible");
+        endingOverlay.classList.add("open");
+        endingStarted = true;
+        endingComplete = true;
+        state = "ending";
+    }
+
+    function startEndingSequence() {
+        if (endingStarted || currentIndex !== cards.length - 1) {
+            return;
+        }
+
+        endingStarted = true;
+        state = "ending";
+        mainArea.classList.remove("show-next", "show-return");
+        nextButton.textContent = "Next";
+
+        endingLetter.classList.remove("open");
+        endingFinishButton.classList.remove("visible");
+        endingFinal.classList.remove("visible");
+
+        clearTimeout(endingLetterTimer);
+        clearTimeout(endingFinishTimer);
+
+        /*
+         * The second present appears already open. There is deliberately
+         * no bow/lid animation in the ending.
+         */
+        endingGift.classList.add("ending-already-open");
+        endingGiftStage.classList.add("active");
+        endingOverlay.classList.add("open");
+
+        /* Let the open present and message sit on screen before the letter. */
+        endingLetterTimer = setTimeout(() => {
+            endingGiftStage.classList.remove("active");
+            endingLetter.classList.add("open");
+            videoViewed = true;
+            updateLibrarySpecialButtons();
+
+            /* Temporary video placeholder: Finish appears after 4 seconds. */
+            endingFinishTimer = setTimeout(() => {
+                endingFinishButton.classList.add("visible");
+            }, 4000);
+        }, 5000);
+    }
+
+    endingFinishButton.addEventListener("click", () => {
+        if (!endingStarted || endingComplete) {
+            return;
+        }
+
+        endingComplete = true;
+        clearTimeout(endingFinishTimer);
+
+        endingLetter.classList.remove("open");
+        endingLetter.style.pointerEvents = "none";
+        endingFinishButton.classList.remove("visible");
+        endingFinalPhoto.src = ENDING_PHOTO_SRC;
+        endingFinal.classList.add("visible");
+        endScreenViewed = true;
+        updateLibrarySpecialButtons();
+    });
+
+    libraryVideoButton.addEventListener("click", () => {
+        if (!videoViewed) {
+            return;
+        }
+
+        libraryOverlay.classList.remove("open");
+        showEndingLetterScreen();
+    });
+
+    libraryEndButton.addEventListener("click", () => {
+        if (!endScreenViewed) {
+            return;
+        }
+
+        libraryOverlay.classList.remove("open");
+        showEndingFinalScreen();
+    });
+
+    endingBackToCards.addEventListener("click", () => {
+        endingOverlay.classList.remove("open");
+        endingGiftStage.classList.remove("active");
+        endingLetter.classList.remove("open");
+        endingLetter.style.pointerEvents = "none";
+        endingFinishButton.classList.remove("visible");
+        endingFinal.classList.remove("visible");
+        state = "complete";
+        mainArea.classList.remove("show-next", "show-return");
+        updateLibrarySpecialButtons();
+    });
+
+
+
+    /* ==================================================
+       CARD DATA
+
+       Add/edit cards here.
+       The order here is the order they appear.
+       ================================================== */
+
+    const cards = [
+        {
+            rank: "A",
+            suit: "♥",
+            message: "You’re sooo pretty"
+        },
+
+        {
+            rank: "2",
+            suit: "♥",
+            message: "I love your boobs 🤤"
+        },
+
+        {
+            rank: "3",
+            suit: "♥",
+            message: "I love the way you make me smile so much"
+        },
+
+        {
+            rank: "4",
+            suit: "♥",
+            message: "I love how you care so much for everyone around you"
+        },
+
+        {
+            rank: "5",
+            suit: "♥",
+            message: "You’re one hell of a girlfriend"
+        },
+
+        {
+            rank: "6",
+            suit: "♥",
+            message: "I love how you can remember so many things from the past"
+        },
+
+        {
+            rank: "7",
+            suit: "♥",
+            message: "Sometimes I get jumpscared by how loud you are hehe"
+        },
+
+        {
+            rank: "8",
+            suit: "♥",
+            message: "Your eyes are the most beautiful eyes I’ve ever seen"
+        },
+
+        {
+            rank: "9",
+            suit: "♥",
+            message: "I love the little faces you make 😛"
+        },
+
+        {
+            rank: "10",
+            suit: "♥",
+            message: "I love how you always make me feel like I’m special"
+        },
+
+        {
+            rank: "J",
+            suit: "♥",
+            message: "I love how you try new things for me, even if you’re not good at it like gaming"
+        },
+
+        {
+            rank: "Q",
+            suit: "♥",
+            message: "Gah I’m smiling just from typing these"
+        },
+
+        {
+            rank: "K",
+            suit: "♥",
+            message: "I love how you can reciprocate so easily"
+        },
+
+        {
+            rank: "A",
+            suit: "♦",
+            message: "I love how you can get vulnerable and be like an older sibling at the same time"
+        },
+
+        {
+            rank: "2",
+            suit: "♦",
+            message: "I love how you’re so understanding (like when I lied to you that I didn’t prepare anything)"
+        },
+
+        {
+            rank: "3",
+            suit: "♦",
+            message: "I love how you’re taking the time to read all these (I hope)"
+        },
+
+        {
+            rank: "4",
+            suit: "♦",
+            message: "Have I mentioned how pretty you are?"
+        },
+
+        {
+            rank: "5",
+            suit: "♦",
+            message: "Oh well if I didn’t YOU’RE SO PRETTY BRO THE UNIVERSE IS GATEKEEPING YOU FROM ME ISTG"
+        },
+
+        {
+            rank: "6",
+            suit: "♦",
+            message: "I love trains"
+        },
+
+        {
+            rank: "7",
+            suit: "♦",
+            message: "This screenshot:"
+        },
+
+        {
+            rank: "8",
+            suit: "♦",
+            message: "You’re so gorgeous when you’re sleeping"
+        },
+
+        {
+            rank: "9",
+            suit: "♦",
+            message: "And also so cute when you wake up and out of it lol"
+        },
+
+        {
+            rank: "10",
+            suit: "♦",
+            message: "I love how you always ask me for what I ate, even if I didn’t ask you"
+        },
+
+        {
+            rank: "J",
+            suit: "♦",
+            message: "I still think about your reaction to my 1st month gift, ah that was so nice"
+        },
+
+        {
+            rank: "Q",
+            suit: "♦",
+            message: "I think I haven’t mentioned your boobs yet (*i’m dying without boobs*)"
+        },
+
+        {
+            rank: "K",
+            suit: "♦",
+            message: "You’re such an idiot sometimes <3"
+        },
+
+        {
+            rank: "A",
+            suit: "♣",
+            message: "Y’know as much as we’re in love ‘n’ stuff, you’re still a great friend to have"
+        },
+
+        {
+            rank: "2",
+            suit: "♣",
+            message: "Like you’re just so fun to be around, and even when things are slow, I always have a great time texting you"
+        },
+
+        {
+            rank: "3",
+            suit: "♣",
+            message: "I love how you’ve gotten freaky over time 😛"
+        },
+
+        {
+            rank: "4",
+            suit: "♣",
+            message: "I’m not really the best with words and I feel bad about it constantly, but you always manage to lift my spirits up with yours :)"
+        },
+
+        {
+            rank: "5",
+            suit: "♣",
+            message: "Thank you"
+        },
+
+        {
+            rank: "6",
+            suit: "♣",
+            message: "I really loved your birthday gift for me, I don’t know anyone else who would’ve reached out to my friends and asked them for happy birthday words"
+        },
+
+        {
+            rank: "7",
+            suit: "♣",
+            message: "I loved it when we used to play that number game where you ask questions hehe (and how it got us together :))"
+        },
+
+        {
+            rank: "8",
+            suit: "♣",
+            message: "I love that somehow “I love trains” made it into this list."
+        },
+
+        {
+            rank: "9",
+            suit: "♣",
+            message: "I love how you can turn around shitty days, like that one day where I was really pissed"
+        },
+
+        {
+            rank: "10",
+            suit: "♣",
+            message: "I love how fucking stupid we can be together"
+        },
+
+        {
+            rank: "J",
+            suit: "♣",
+            message: "Y’know apart from me being freaky, your boobs meant a lot to me. (Holy shit this sounds bad)"
+        },
+
+        {
+            rank: "Q",
+            suit: "♣",
+            message: "Like, no one’s ever gotten comfortable enough with me to show those areas and I’m really honored to have helped you feel better about them"
+        },
+
+        {
+            rank: "K",
+            suit: "♣",
+            message: "I love the way you still teach me things even if I forget them, like the time where it took me weeks to memorize that “idts” is i don’t think so"
+        },
+
+        {
+            rank: "A",
+            suit: "♠",
+            message: "I forgot what I was gonna write here 😔"
+        },
+
+        {
+            rank: "2",
+            suit: "♠",
+            message: "I love how you look soo happy to be with me"
+        },
+
+        {
+            rank: "3",
+            suit: "♠",
+            message: "I can’t wait to make more memories with you"
+        },
+
+        {
+            rank: "4",
+            suit: "♠",
+            message: "I still like to read back when we first discovered we had feelings for each other"
+        },
+
+        {
+            rank: "5",
+            suit: "♠",
+            message: "I genuinely love how you go “Also also also” when you remembered something to tell me"
+        },
+
+        {
+            rank: "6",
+            suit: "♠",
+            message: "I fucking love you man"
+        },
+
+        {
+            rank: "7",
+            suit: "♠",
+            message: "I love that we can go from having an actually meaningful conversation to saying the most incomprehensible shit imaginable."
+        },
+
+        {
+            rank: "8",
+            suit: "♠",
+            message: "Man I’m really sucking my brain dry with this one"
+        },
+
+        {
+            rank: "9",
+            suit: "♠",
+            message: "I love how you can make me smile like an idiot when talking to you"
+        },
+
+        {
+            rank: "10",
+            suit: "♠",
+            message: "I don’t think I’ve mentioned how drop dead gorgeous you can be at times right?"
+        },
+
+        {
+            rank: "J",
+            suit: "♠",
+            message: "I don't think I've ever gotten this comfortable with someone this quickly lowk"
+        },
+
+        {
+            rank: "Q",
+            suit: "♠",
+            message: "I really hope at least one of these left something in you"
+        },
+
+        {
+            rank: "K",
+            suit: "♠",
+            message: "Happy birthday. Here’s to another year of memories, laughs and hopefully sex."
+        }
+
+    ];
+
+
+    /* ==================================================
+       STATE
+       ================================================== */
+
+    let currentIndex = 0;
+    let queuedNextClicks = 0;
+
+    let historyScrollOffset = 0;
+
+    const historyScrollbar =
+        document.getElementById("historyScrollbar");
+
+    const historyScrollbarSpacer =
+        document.getElementById("historyScrollbarSpacer");
+
+    let state = "active";
+
+    let revisitedIndex = null;
+    let parkedCurrentWasFlipped = false;
+
+
+    const mainArea =
+        document.getElementById("mainArea");
+
+    const nextButton =
+        document.getElementById("nextButton");
+
+    const returnButton =
+        document.getElementById("returnButton");
+
+    const libraryButton =
+        document.getElementById("libraryButton");
+
+    const libraryOverlay =
+        document.getElementById("libraryOverlay");
+
+    const closeLibrary =
+        document.getElementById("closeLibrary");
+
+    const libraryContent =
+        document.getElementById("libraryContent");
+
+    const libraryDetailOverlay =
+        document.getElementById("libraryDetailOverlay");
+
+    const libraryDetailCard =
+        document.getElementById("libraryDetailCard");
+
+    let selectedLibraryCard = null;
+
+
+    // Number-card pips use a vertical three-section layout: left 20%,
+    // middle 60%, right 20%. The pip field itself occupies only the middle
+    // section, while the corner indices remain in the outer sections.
+    const pipPositions = {
+        // X/Y are percentages of the full card. The x coordinates stay
+        // inside the central 60% of the card (20% -> 80%), leaving the
+        // outer strips clear for the corner rank/suit indices.
+        "2": [
+            [50, 18, false],
+            [50, 82, true]
+        ],
+        "3": [
+            [50, 15, false],
+            [50, 50, false],
+            [50, 85, true]
+        ],
+        "4": [
+            [30, 22, false],
+            [70, 22, false],
+            [30, 78, true],
+            [70, 78, true]
+        ],
+        "5": [
+            [30, 22, false],
+            [70, 22, false],
+            [50, 50, false],
+            [30, 78, true],
+            [70, 78, true]
+        ],
+        "6": [
+            [30, 17, false],
+            [70, 17, false],
+            [30, 50, false],
+            [70, 50, false],
+            [30, 83, true],
+            [70, 83, true]
+        ],
+        "7": [
+            [30, 15, false],
+            [70, 15, false],
+            [50, 34, false],
+            [30, 50, false],
+            [70, 50, false],
+            [30, 85, true],
+            [70, 85, true]
+        ],
+        "8": [
+            [30, 13, false],
+            [70, 13, false],
+            [30, 36, false],
+            [70, 36, false],
+            [30, 64, true],
+            [70, 64, true],
+            [30, 87, true],
+            [70, 87, true]
+        ],
+        "9": [
+            [30, 13, false],
+            [70, 13, false],
+            [30, 36, false],
+            [70, 36, false],
+            [50, 50, false],
+            [30, 64, true],
+            [70, 64, true],
+            [30, 87, true],
+            [70, 87, true]
+        ],
+        "10": [
+            [30, 12, false],
+            [70, 12, false],
+            [30, 31, false],
+            [70, 31, false],
+            [30, 50, false],
+            [70, 50, false],
+            [30, 69, true],
+            [70, 69, true],
+            [30, 88, true],
+            [70, 88, true]
+        ]
+    };
+
+    function renderPips(rank, suit, variant = "main") {
+        const positions = pipPositions[String(rank)];
+        if (!positions) {
+            return "";
+        }
+
+        const fieldClass = variant === "library"
+            ? "library-pip-field"
+            : variant === "detail"
+                ? "library-detail-pip-field"
+                : "pip-field";
+
+        const pipClass = variant === "library"
+            ? "library-pip"
+            : variant === "detail"
+                ? "library-detail-pip"
+                : "pip";
+
+        const isRed = suit === "♥" || suit === "♦";
+
+        // X/Y are percentages of the full card. X stays between 20% and 80%,
+        // reserving the outer 20% strips for the corner rank/suit indices.
+        return `
+            <div class="${fieldClass} pip-message-safe pip-rank-${String(rank)}">
+                ${positions.map(([x, y, inverted]) => `
+                    <span
+                        class="${pipClass}${isRed ? " red" : ""}${inverted ? " inverted" : ""}"
+                        style="left:${x}%; top:${y}%;"
+                    >${suit}</span>
+                `).join("")}
+            </div>
+        `;
+    }
+
+    function renderFallbackSuit(suit, variant = "main") {
+        if (variant === "library") {
+            return `<div class="library-suit">${suit}</div>`;
+        }
+
+        if (variant === "detail") {
+            return `<div class="library-detail-suit">${suit}</div>`;
+        }
+
+        return `<div class="suit">${suit}</div>`;
+    }
+
+    /* ==================================================
+       CARD LIBRARY
+       ================================================== */
+
+    function buildCardLibrary() {
+
+        const suits = [
+            { symbol: "♠", name: "Spades" },
+            { symbol: "♥", name: "Hearts" },
+            { symbol: "♦", name: "Diamonds" },
+            { symbol: "♣", name: "Clubs" }
+        ];
+
+        libraryContent.innerHTML = "";
+
+        suits.forEach(suit => {
+
+            const row = document.createElement("section");
+            row.className = "suit-row";
+
+            const title = document.createElement("h2");
+            title.className = "suit-row-title";
+            title.textContent = `${suit.name} ${suit.symbol}`;
+
+            const grid = document.createElement("div");
+            grid.className = "library-grid";
+
+            cards
+                .map((cardData, index) => ({ cardData, index }))
+                .filter(({ cardData }) => cardData.suit === suit.symbol)
+                .forEach(({ cardData, index }) => {
+
+                    const libraryCard = document.createElement("div");
+                    libraryCard.className = "library-card";
+                    libraryCard.dataset.index = index;
+                    libraryCard.dataset.cardRotation = index % 2 === 0 ? "-2.5" : "2.5";
+                    libraryCard.title = `Card ${index + 1}: ${cardData.rank}${cardData.suit}`;
+
+                    libraryCard.innerHTML = `
+                        <div class="library-card-front">
+                            <div class="library-corner top-left">
+                                ${cardData.rank}<br>${cardData.suit}
+                            </div>
+                            <div class="library-corner bottom-right">
+                                ${cardData.rank}<br>${cardData.suit}
+                            </div>
+                        </div>
+                    `;
+
+                    libraryCard.addEventListener("click", () => {
+                        /* Only cards not yet reached on the main page stay locked. */
+                        if (index > currentIndex) {
+                            return;
+                        }
+
+                        openLibraryCard(index, libraryCard);
+                    });
+
+                    grid.appendChild(libraryCard);
+                });
+
+            row.appendChild(title);
+            row.appendChild(grid);
+            libraryContent.appendChild(row);
+        });
+    }
+
+    function updateLibraryAvailability() {
+        document.querySelectorAll(".library-card").forEach(libraryCard => {
+            const index = Number(libraryCard.dataset.index);
+            const discovered = index <= currentIndex;
+
+            libraryCard.classList.toggle("undiscovered", !discovered);
+
+            if (index <= currentIndex) {
+                libraryCard.removeAttribute("aria-disabled");
+
+                if (index === currentIndex) {
+                    libraryCard.title = `View the currently shown card ${index + 1}: ${cards[index].rank}${cards[index].suit}`;
+                } else {
+                    libraryCard.title = `Look back at card ${index + 1}: ${cards[index].rank}${cards[index].suit}`;
+                }
+            } else {
+                libraryCard.setAttribute("aria-disabled", "true");
+                libraryCard.title = `Discover card ${index + 1} on the main page first`;
+            }
+        });
+    }
+
+    function openLibraryCard(index, sourceElement) {
+
+        const cardData = cards[index];
+        const noteRotation = index % 3 === 0
+            ? -2.4
+            : index % 3 === 1
+                ? 1.8
+                : -1.2;
+
+        if (selectedLibraryCard) {
+            selectedLibraryCard.classList.remove("selected");
+        }
+
+        selectedLibraryCard = sourceElement;
+        selectedLibraryCard.classList.add("selected");
+
+        libraryDetailCard.classList.remove("animate-in", "animate-out");
+
+        const detailPhoto = cardData.photo
+            ? `<img class="library-detail-message-photo" src="${cardData.photo}" alt="${cardData.photoAlt || "Photo"}" loading="lazy">`
+            : "";
+
+        const detailNoteClass = cardData.photo
+            ? "library-detail-message-note has-photo"
+            : "library-detail-message-note";
+
+        libraryDetailCard.innerHTML = `
+            <div class="library-detail-corner">
+                ${cardData.rank}<br>${cardData.suit}
+            </div>
+
+            <div
+                class="${detailNoteClass}"
+                style="transform: translate(-50%, -50%) rotate(${noteRotation}deg);"
+            >
+                <div class="library-detail-message-text">${cardData.message}</div>
+                ${detailPhoto}
+            </div>
+        `;
+
+        /*
+         * The enlarged card starts exactly where the library card was
+         * clicked, then flies/zooms into the center of the overlay.
+         */
+        libraryDetailOverlay.classList.add("open");
+
+        requestAnimationFrame(() => {
+            const sourceRect = sourceElement.getBoundingClientRect();
+            const targetRect = libraryDetailCard.getBoundingClientRect();
+
+            const sourceCenterX = sourceRect.left + sourceRect.width / 2;
+            const sourceCenterY = sourceRect.top + sourceRect.height / 2;
+            const targetCenterX = targetRect.left + targetRect.width / 2;
+            const targetCenterY = targetRect.top + targetRect.height / 2;
+
+            const startX = sourceCenterX - targetCenterX;
+            const startY = sourceCenterY - targetCenterY;
+            const startScale = Math.max(0.18, Math.min(0.55, sourceRect.width / targetRect.width));
+            const sourceRotation = index % 2 === 0 ? -2.5 : 2.5;
+            const arrivalRotation = sourceRotation * 0.28;
+
+            libraryDetailCard.style.setProperty("--start-x", `${startX}px`);
+            libraryDetailCard.style.setProperty("--start-y", `${startY}px`);
+            libraryDetailCard.style.setProperty("--start-scale", startScale);
+            libraryDetailCard.style.setProperty("--start-rotation", `${sourceRotation}deg`);
+            libraryDetailCard.style.setProperty("--arrival-rotation", `${arrivalRotation}deg`);
+
+            libraryDetailCard.classList.add("animate-in");
+        });
+    }
+
+    function closeLibraryCard() {
+
+        if (!libraryDetailOverlay.classList.contains("open")) {
+            return;
+        }
+
+        libraryDetailCard.classList.remove("animate-in", "return-settled");
+
+        if (!selectedLibraryCard) {
+            libraryDetailOverlay.classList.remove("open", "returning");
+            return;
+        }
+
+        const sourceRect = selectedLibraryCard.getBoundingClientRect();
+        const targetRect = libraryDetailCard.getBoundingClientRect();
+
+        const sourceCenterX = sourceRect.left + sourceRect.width / 2;
+        const sourceCenterY = sourceRect.top + sourceRect.height / 2;
+        const targetCenterX = targetRect.left + targetRect.width / 2;
+        const targetCenterY = targetRect.top + targetRect.height / 2;
+
+        libraryDetailCard.style.setProperty(
+            "--start-x",
+            `${sourceCenterX - targetCenterX}px`
+        );
+        libraryDetailCard.style.setProperty(
+            "--start-y",
+            `${sourceCenterY - targetCenterY}px`
+        );
+        libraryDetailCard.style.setProperty(
+            "--start-scale",
+            Math.max(0.18, Math.min(0.55, sourceRect.width / targetRect.width))
+        );
+        libraryDetailCard.style.setProperty(
+            "--start-rotation",
+            `${selectedLibraryCard.dataset.cardRotation || 0}deg`
+        );
+
+        const returningCard = selectedLibraryCard;
+
+        /*
+         * Remove the dim/blur layer as the large card begins its flight back.
+         * This lets the small library card underneath become visible naturally
+         * instead of waiting for the overlay's fade-out to finish.
+         */
+        libraryDetailOverlay.classList.add("returning");
+
+        /*
+         * Reveal the source card shortly before the enlarged card arrives.
+         * It sits underneath the returning card, so it stays hidden behind it
+         * until the two are visually aligned.
+         */
+        setTimeout(() => {
+            if (returningCard === selectedLibraryCard &&
+                libraryDetailOverlay.classList.contains("open")) {
+                returningCard.classList.remove("selected");
+                returningCard.classList.add("returning-source");
+            }
+        }, 205);
+
+        const finishReturn = event => {
+            if (event.animationName !== "libraryCardLeave") {
+                return;
+            }
+
+            libraryDetailCard.removeEventListener("animationend", finishReturn);
+
+            /* Keep the finished return position while the overlay closes. */
+            libraryDetailCard.classList.add("return-settled");
+            libraryDetailOverlay.classList.remove("open");
+
+            /*
+             * Reset only after the overlay is no longer visible. The tiny card
+             * is already underneath it, so there is no centered-card snap.
+             */
+            setTimeout(() => {
+                if (returningCard) {
+                    returningCard.classList.remove("selected", "returning-source");
+                }
+                libraryDetailOverlay.classList.remove("returning");
+                libraryDetailCard.classList.remove(
+                    "animate-out",
+                    "animate-in",
+                    "return-settled"
+                );
+                selectedLibraryCard = null;
+            }, 230);
+        };
+
+        libraryDetailCard.addEventListener("animationend", finishReturn);
+        libraryDetailCard.classList.add("animate-out");
+    }
+
+    buildCardLibrary();
+    updateLibraryAvailability();
+    updateLibrarySpecialButtons();
+
+    libraryButton.addEventListener("click", () => {
+        closeLibraryCard();
+        updateLibraryAvailability();
+        libraryOverlay.classList.add("open");
+    });
+
+    closeLibrary.addEventListener("click", () => {
+        closeLibraryCard();
+        libraryOverlay.classList.remove("open");
+    });
+
+    libraryDetailOverlay.addEventListener("click", () => {
+        // Any click anywhere on the enlarged-card view returns to the browser.
+        closeLibraryCard();
+    });
+
+
+    /* ==================================================
+       CARD RENDERING
+       ================================================== */
+
+    function createCard(cardData, index) {
+
+        const container =
+            document.createElement("div");
+
+        container.className =
+            "card-container";
+
+        container.dataset.index =
+            index;
+
+
+        /*
+         * First card starts active.
+         * Everything else waits off-screen.
+         */
+
+        if (index === 0) {
+
+            container.classList.add(
+                "active"
+            );
+
+        } else {
+
+            container.classList.add(
+                "future"
+            );
+
+        }
+
+
+        const noteRotation = index % 3 === 0
+            ? -2.4
+            : index % 3 === 1
+                ? 1.8
+                : -1.2;
+
+        container.innerHTML = `
+
+            <div class="card">
+
+                <div class="card-front">
+
+                    ${renderPips(cardData.rank, cardData.suit) || renderFallbackSuit(cardData.suit)}
+
+                    <div class="corner top-left">
+                        ${cardData.rank}<br>${cardData.suit}
+                    </div>
+
+                    ${cardData.photo ? `
+                    <div
+                        class="message-note has-photo"
+                        style="--note-rotation: ${noteRotation}deg;"
+                    >
+                        <div class="message-note-text">${cardData.message}</div>
+                        <img
+                            class="message-note-photo"
+                            src="${cardData.photo}"
+                            alt="${cardData.photoAlt || "Photo"}"
+                            loading="lazy"
+                        >
+                    </div>
+                    ` : `
+                    <div
+                        class="message-note"
+                        style="--note-rotation: ${noteRotation}deg;"
+                    >
+                        ${cardData.message}
+                    </div>
+                    `}
+
+                    <div class="corner bottom-right">
+                        ${cardData.rank}<br>${cardData.suit}
+                    </div>
+
+                </div>
+
+
+                <div class="card-back">
+
+                    <div class="counter">
+                        ${index + 1} / ${cards.length}
+                    </div>
+
+                </div>
+
+            </div>
+        `;
+
+
+        const card =
+            container.querySelector(".card");
+
+
+        card.addEventListener(
+            "click",
+            () => flipCard(card)
+        );
+
+
+        /*
+         * Completed cards can be revisited.
+         * The currently displayed card is temporarily
+         * parked in the pile at the newest position.
+         * The selected history card then becomes the
+         * active card in the center.
+         */
+        container.addEventListener(
+            "click",
+            () => {
+
+                if (
+                    !container.classList.contains("in-pile") ||
+                    state === "transitioning"
+                ) {
+                    return;
+                }
+
+                const index =
+                    Number(container.dataset.index);
+
+                if (index >= currentIndex) {
+                    return;
+                }
+
+                const currentContainer =
+                    cardContainers[currentIndex];
+
+                const currentCard =
+                    currentContainer.querySelector(".card");
+
+                /*
+                 * If another history card was already open,
+                 * put that one back in its original history slot.
+                 */
+                if (revisitedIndex !== null) {
+                    const previous =
+                        cardContainers[revisitedIndex];
+
+                    previous.classList.remove("active");
+                    previous.classList.add("in-pile");
+
+                    previous.querySelector(".card")
+                        .classList.remove("flipped");
+                }
+
+                /*
+                 * The newest/current card is now parked in history.
+                 * Keep the information needed to restore it exactly.
+                 */
+                if (revisitedIndex === null) {
+                    parkedCurrentWasFlipped =
+                        currentCard.classList.contains("flipped");
+
+                    currentCard.classList.remove("flipped");
+
+                    currentContainer.classList.remove("active");
+                    currentContainer.classList.add("in-pile");
+                }
+
+                revisitedIndex = index;
+
+                container.classList.remove("in-pile");
+                container.classList.add("active");
+
+                /*
+                 * History cards now open on the FRONT because the message
+                 * lives on the front of the card. They remain fully
+                 * flippable after being revisited.
+                 */
+                card.classList.remove("flipped");
+
+                /*
+                 * Recalculate positions so the parked current card
+                 * occupies the newest/center pile position.
+                 */
+                updatePilePositions();
+
+                state = "revisiting";
+
+                updateNextButtonLabel();
+                mainArea.classList.add("show-next");
+                mainArea.classList.add("show-return");
+            }
+        );
+
+        mainArea.insertBefore(
+            container,
+            nextButton
+        );
+
+
+        return container;
+    }
+
+
+    /* ==================================================
+       RENDER ALL CARDS
+       ================================================== */
+
+    const cardContainers =
+        cards.map(
+            (cardData, index) =>
+                createCard(cardData, index)
+        );
+
+    updateNextButtonLabel();
+
+
+    /* ==================================================
+       FLIP CARD
+       ================================================== */
+
+    function flipCard(card) {
+
+        if (
+            state === "transitioning"
+        ) {
+            return;
+        }
+
+
+        const container =
+            card.closest(".card-container");
+
+
+        const index =
+            Number(
+                container.dataset.index
+            );
+
+
+        /*
+         * A history card is still a real card: while it is being
+         * revisited, allow it to flip between its message FRONT and
+         * its numbered BACK.
+         */
+        if (state === "revisiting") {
+            if (index !== revisitedIndex) {
+                return;
+            }
+
+            card.classList.toggle("flipped");
+            return;
+        }
+
+        /*
+         * Only the current card can be interacted with
+         * during the normal flow.
+         */
+        if (
+            index !== currentIndex
+        ) {
+            return;
+        }
+
+
+        card.classList.toggle(
+            "flipped"
+        );
+
+
+        /*
+         * Show / hide Next.
+         */
+        if (
+            card.classList.contains("flipped")
+        ) {
+
+            state = "flipped";
+
+            mainArea.classList.add(
+                "show-next"
+            );
+
+        } else {
+
+            state = "active";
+
+            mainArea.classList.remove(
+                "show-next"
+            );
+
+        }
+
+    }
+
+
+    /* ==================================================
+       PILE ROTATION
+       ================================================== */
+
+    function getPileRotation(index) {
+
+        /*
+         * Tiny rotations only.
+         *
+         * This keeps the cards looking
+         * like one real hand/deck.
+         */
+
+        const rotations = [
+            -0.8,
+             0.5,
+            -0.6,
+             0.7,
+            -0.5,
+             0.4,
+            -0.6,
+             0.5,
+            -0.4,
+             0.3
+        ];
+
+
+        return rotations[
+            index % rotations.length
+        ];
+
+    }
+
+
+    /* ==================================================
+       PILE X POSITION
+       ================================================== */
+
+    function getPileX(index) {
+
+        /*
+         * The newest card is always
+         * in the CENTER.
+         *
+         * Every older card is pushed
+         * progressively farther LEFT.
+         */
+
+        const desiredSpacing =
+            28;
+
+
+        const maxPileWidth =
+            900;
+
+
+        const pileSize =
+            currentIndex + 1;
+
+
+        /*
+         * For a very large pile,
+         * spacing automatically tightens
+         * enough to stay on screen.
+         */
+
+        const availableSpacing =
+            maxPileWidth /
+            Math.max(
+                pileSize - 1,
+                1
+            );
+
+
+        const spacing =
+            Math.min(
+                desiredSpacing,
+                availableSpacing
+            );
+
+
+        return -(
+            pileSize - 1 - index
+        ) * spacing + historyScrollOffset;
+
+    }
+
+
+    /* ==================================================
+       HISTORY PILE SCROLLING
+       ================================================== */
+
+    function getHistoryScrollLimit() {
+        const pileSize = currentIndex + 1;
+        const desiredSpacing = 28;
+        const maxPileWidth = 900;
+        const availableSpacing =
+            maxPileWidth / Math.max(pileSize - 1, 1);
+        const spacing =
+            Math.min(desiredSpacing, availableSpacing);
+
+        return Math.max(0, (pileSize - 1) * spacing);
+    }
+
+    function syncHistoryScrollbar() {
+        if (!historyScrollbar || !historyScrollbarSpacer) {
+            return;
+        }
+
+        const limit = getHistoryScrollLimit();
+        historyScrollbarSpacer.style.width = `calc(100% + ${limit}px)`;
+        historyScrollOffset = Math.max(0, Math.min(historyScrollOffset, limit));
+
+        if (Math.abs(historyScrollbar.scrollLeft - historyScrollOffset) > 1) {
+            historyScrollbar.scrollLeft = historyScrollOffset;
+        }
+
+        historyScrollbar.classList.toggle("disabled", limit < 8);
+    }
+
+    function resetHistoryScroll() {
+        historyScrollOffset = 0;
+        if (historyScrollbar) {
+            historyScrollbar.scrollLeft = 0;
+        }
+    }
+
+    let historyScrollRaf = null;
+
+    if (historyScrollbar) {
+        historyScrollbar.addEventListener("scroll", () => {
+            historyScrollOffset = historyScrollbar.scrollLeft;
+
+            /*
+             * Let multiple native scroll events collapse into one visual
+             * update per animation frame. This prevents the pile from
+             * jittering while the scrollbar is being dragged or wheeled.
+             */
+            if (historyScrollRaf !== null) {
+                return;
+            }
+
+            historyScrollRaf = requestAnimationFrame(() => {
+                historyScrollRaf = null;
+                updatePilePositions();
+            });
+        }, { passive: true });
+
+        mainArea.addEventListener("wheel", event => {
+            if (event.clientY < window.innerHeight - 190 || getHistoryScrollLimit() < 8) {
+                return;
+            }
+
+            const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY)
+                ? event.deltaX
+                : event.deltaY;
+
+            if (Math.abs(delta) < 0.5) {
+                return;
+            }
+
+            const limit = getHistoryScrollLimit();
+            const currentScroll = historyScrollbar.scrollLeft;
+            const nextOffset = Math.max(0, Math.min(limit, currentScroll + delta));
+
+            if (nextOffset !== currentScroll) {
+                event.preventDefault();
+
+                /*
+                 * The native scroll event is now the single source of truth.
+                 * Do not also update the pile here; that was causing the
+                 * previous double-update/jitter behavior.
+                 */
+                historyScrollbar.scrollLeft = nextOffset;
+            }
+        }, { passive: false });
+    }
+
+
+    /* ==================================================
+       UPDATE ENTIRE PILE
+       ================================================== */
+
+    function updatePilePositions() {
+
+        syncHistoryScrollbar();
+
+        const pileSize =
+            currentIndex + 1;
+
+
+        for (
+            let i = 0;
+            i < pileSize;
+            i++
+        ) {
+
+            const container =
+                cardContainers[i];
+
+
+            const x =
+                getPileX(i);
+
+
+            const rotation =
+                getPileRotation(i);
+
+
+            container.style.setProperty(
+                "--pile-x",
+                `${x}px`
+            );
+
+
+            container.style.setProperty(
+                "--pile-rotation",
+                `${rotation}deg`
+            );
+
+
+            /*
+             * Newer cards always sit above
+             * older cards.
+             */
+
+            container.style.setProperty(
+                "--pile-index",
+                `${i + 1}`
+            );
+
+        }
+
+    }
+
+
+    /* ==================================================
+       MOVE CURRENT CARD INTO PILE
+       ================================================== */
+
+    function moveCurrentCardToPile() {
+
+        const container =
+            cardContainers[currentIndex];
+
+
+        const card =
+            container.querySelector(".card");
+
+
+        /*
+         * Return to the physical front.
+         */
+
+        card.classList.remove(
+            "flipped"
+        );
+
+
+        state =
+            "transitioning";
+
+
+        mainArea.classList.remove(
+            "show-next"
+        );
+
+
+        container.classList.add(
+            "transitioning"
+        );
+
+
+        /*
+         * Wait for the flip animation.
+         */
+
+        setTimeout(() => {
+
+            container.classList.remove(
+                "active",
+                "transitioning"
+            );
+
+
+            container.classList.add(
+                "in-pile"
+            );
+
+
+            /*
+             * Recalculate the entire pile.
+             *
+             * Every old card shifts left.
+             * The newest card takes center.
+             */
+
+            updatePilePositions();
+
+
+            /*
+             * Advance to next card.
+             */
+
+            currentIndex++;
+            resetHistoryScroll();
+            updateLibraryAvailability();
+
+
+            /*
+             * Activate the next card.
+             */
+
+            if (
+                currentIndex <
+                cards.length
+            ) {
+
+                activateNextCard();
+
+                /* Consume queued clicks one transition at a time. */
+                if (queuedNextClicks > 0 && currentIndex < cards.length - 1) {
+                    queuedNextClicks--;
+                    setTimeout(() => {
+                        if (state === "active" || state === "flipped") {
+                            moveCurrentCardToPile();
+                        }
+                    }, 0);
+                } else if (currentIndex === cards.length - 1) {
+                    /* Do not let extra spam accidentally enter the ending. */
+                    queuedNextClicks = 0;
+                    startFinalCardWait();
+                }
+
+            } else {
+
+                state =
+                    "complete";
+                updateNextButtonLabel();
+
+            }
+
+        }, 170);
+
+    }
+
+
+    /* ==================================================
+       ACTIVATE NEXT CARD
+       ================================================== */
+
+    function activateNextCard() {
+
+        const nextContainer =
+            cardContainers[currentIndex];
+
+
+        nextContainer.classList.remove(
+            "future"
+        );
+
+
+        nextContainer.classList.add(
+            "active"
+        );
+
+
+        const card =
+            nextContainer.querySelector(
+                ".card"
+            );
+
+
+        card.classList.remove(
+            "flipped"
+        );
+
+
+        state =
+            "active";
+
+        updateNextButtonLabel();
+
+        if (currentIndex === cards.length - 1 && !endingStarted) {
+            startFinalCardWait();
+        }
+
+    }
+
+
+    /* ==================================================
+       RETURN TO NEWEST
+       ================================================== */
+
+    returnButton.addEventListener(
+        "click",
+        () => {
+
+            if (
+                revisitedIndex === null ||
+                state === "transitioning"
+            ) {
+                return;
+            }
+
+            const oldContainer =
+                cardContainers[revisitedIndex];
+
+            const oldCard =
+                oldContainer.querySelector(".card");
+
+            /* Put the looked-back card back where it originally belonged. */
+            oldCard.classList.remove("flipped");
+            oldContainer.classList.remove("active");
+            oldContainer.classList.add("in-pile");
+
+            /* Pull the previously displayed card back out of the pile. */
+            const newestContainer =
+                cardContainers[currentIndex];
+
+            const newestCard =
+                newestContainer.querySelector(".card");
+
+            newestContainer.classList.remove("in-pile");
+            newestContainer.classList.add("active");
+
+            if (parkedCurrentWasFlipped) {
+                newestCard.classList.add("flipped");
+                state = "flipped";
+                mainArea.classList.add("show-next");
+            } else {
+                newestCard.classList.remove("flipped");
+                state = "active";
+                mainArea.classList.remove("show-next");
+            }
+
+            revisitedIndex = null;
+            parkedCurrentWasFlipped = false;
+
+            mainArea.classList.remove("show-return");
+
+            resetHistoryScroll();
+            updatePilePositions();
+            updateNextButtonLabel();
+        }
+    );
+
+
+    /* ==================================================
+       NEXT BUTTON
+       ================================================== */
+
+    nextButton.addEventListener(
+        "click",
+        () => {
+
+            if (state === "revisiting") {
+
+                const wasFlipped = parkedCurrentWasFlipped;
+
+                returnButton.click();
+
+                if (wasFlipped && state === "flipped") {
+                    moveCurrentCardToPile();
+                }
+
+                return;
+            }
+
+            /* The final card uses Continue? to enter the ending sequence. */
+            if (
+                currentIndex === cards.length - 1 &&
+                (state === "active" || state === "flipped") &&
+                !endingStarted
+            ) {
+                if (!finalCardContinueReady) {
+                    return;
+                }
+
+                startEndingSequence();
+                return;
+            }
+
+            /* Queue rapid clicks during the 170ms card transition so Next
+               remains safely spammable during testing. */
+            if (state === "transitioning") {
+                queuedNextClicks++;
+                return;
+            }
+
+            if (
+                state === "complete" ||
+                state === "ending"
+            ) {
+                return;
+            }
+
+            if (
+                state === "active" ||
+                state === "flipped"
+            ) {
+                moveCurrentCardToPile();
+            }
+
+        }
+    );
+
+</script>
+
+</body>
+</html>
